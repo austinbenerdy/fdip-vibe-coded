@@ -1,0 +1,184 @@
+name: Deploy FDIP Platform to Azure
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+env:
+  AZURE_WEBAPP_NAME: ${{ secrets.AZURE_WEBAPP_NAME }}
+  AZURE_STATIC_WEB_APP_NAME: ${{ secrets.AZURE_STATIC_WEB_APP_NAME }}
+  RESOURCE_GROUP: ${{ secrets.RESOURCE_GROUP }}
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+    
+    - name: Set up Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+    
+    - name: Install backend dependencies
+      run: |
+        cd backend
+        go mod download
+        go mod verify
+    
+    - name: Run backend tests
+      run: |
+        cd backend
+        go test ./...
+    
+    - name: Install frontend dependencies
+      run: |
+        cd frontend
+        npm ci
+    
+    - name: Run frontend tests
+      run: |
+        cd frontend
+        npm test -- --watchAll=false
+    
+    - name: Build frontend
+      run: |
+        cd frontend
+        npm run build
+
+  deploy-backend:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
+    
+    - name: Log in to Azure Container Registry
+      uses: azure/docker-login@v1
+      with:
+        login-server: ${{ secrets.REGISTRY_LOGIN_SERVER }}
+        username: ${{ secrets.REGISTRY_USERNAME }}
+        password: ${{ secrets.REGISTRY_PASSWORD }}
+    
+    - name: Build and push backend image
+      run: |
+        cd backend
+        docker build -t ${{ secrets.REGISTRY_LOGIN_SERVER }}/fdip-backend:${{ github.sha }} .
+        docker push ${{ secrets.REGISTRY_LOGIN_SERVER }}/fdip-backend:${{ github.sha }}
+    
+    - name: Deploy to Azure App Service
+      uses: azure/webapps-deploy@v2
+      with:
+        app-name: ${{ env.AZURE_WEBAPP_NAME }}
+        images: ${{ secrets.REGISTRY_LOGIN_SERVER }}/fdip-backend:${{ github.sha }}
+        resource-group-name: ${{ env.RESOURCE_GROUP }}
+
+  deploy-frontend:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+    
+    - name: Install dependencies
+      run: |
+        cd frontend
+        npm ci
+    
+    - name: Build frontend
+      run: |
+        cd frontend
+        echo "REACT_APP_API_URL=${{ secrets.REACT_APP_API_URL }}" > .env
+        echo "REACT_APP_STRIPE_PUBLISHABLE_KEY=${{ secrets.REACT_APP_STRIPE_PUBLISHABLE_KEY }}" >> .env
+        npm run build
+    
+    - name: Deploy to Azure Static Web Apps
+      uses: Azure/static-web-apps-deploy@v1
+      with:
+        azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
+        repo_token: ${{ secrets.GITHUB_TOKEN }}
+        app_location: "frontend/build"
+        api_location: ""
+        output_location: ""
+        skip_app_build: true
+
+  deploy-infrastructure:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch'
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v2
+      with:
+        terraform_version: "1.5.0"
+    
+    - name: Azure Login
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+    
+    - name: Terraform Init
+      run: |
+        cd deployment/terraform
+        terraform init
+    
+    - name: Terraform Plan
+      run: |
+        cd deployment/terraform
+        terraform plan -var="database_admin_password=${{ secrets.DATABASE_ADMIN_PASSWORD }}"
+    
+    - name: Terraform Apply
+      run: |
+        cd deployment/terraform
+        terraform apply -auto-approve -var="database_admin_password=${{ secrets.DATABASE_ADMIN_PASSWORD }}"
+    
+    - name: Get Terraform Outputs
+      run: |
+        cd deployment/terraform
+        terraform output -json > outputs.json
+        echo "::set-output name=app_service_name::$(terraform output -raw app_service_name)"
+        echo "::set-output name=static_web_app_name::$(terraform output -raw static_web_app_name)"
+        echo "::set-output name=resource_group_name::$(terraform output -raw resource_group_name)"
+
+  notify:
+    needs: [deploy-backend, deploy-frontend]
+    runs-on: ubuntu-latest
+    if: always()
+    
+    steps:
+    - name: Notify on success
+      if: needs.deploy-backend.result == 'success' && needs.deploy-frontend.result == 'success'
+      run: |
+        echo "✅ Deployment completed successfully!"
+        echo "Frontend: ${{ needs.deploy-frontend.outputs.url }}"
+        echo "Backend: ${{ needs.deploy-backend.outputs.url }}"
+    
+    - name: Notify on failure
+      if: needs.deploy-backend.result == 'failure' || needs.deploy-frontend.result == 'failure'
+      run: |
+        echo "❌ Deployment failed!"
+        echo "Check the logs for more details." 
