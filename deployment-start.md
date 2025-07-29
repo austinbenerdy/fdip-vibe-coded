@@ -20,6 +20,9 @@ Before you begin, make sure you have:
 # For Ubuntu/Debian
 curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
 
+# For Fedora/RHEL/CentOS
+sudo dnf install azure-cli
+
 # For macOS
 brew install azure-cli
 
@@ -33,6 +36,16 @@ brew install azure-cli
 curl -fsSL https://apt.releases.hashicorp.com/gpg | sudo apt-key add -
 sudo apt-add-repository "deb [arch=amd64] https://apt.releases.hashicorp.com $(lsb_release -cs) main"
 sudo apt-get update && sudo apt-get install terraform
+
+# For Fedora/RHEL/CentOS
+# Method 1: Using dnf (recommended)
+sudo dnf install -y dnf-plugins-core
+sudo dnf config-manager --add-repo https://rpm.releases.hashicorp.com/fedora/hashicorp.repo
+sudo dnf install terraform
+
+# Method 2: Direct download (if Method 1 fails)
+# curl -O https://releases.hashicorp.com/terraform/1.5.0/terraform_1.5.0_linux_amd64.zip
+# sudo unzip terraform_1.5.0_linux_amd64.zip -d /usr/local/bin/
 
 # For macOS
 brew install terraform
@@ -48,6 +61,12 @@ sudo apt-get update
 sudo apt-get install docker.io
 sudo usermod -aG docker $USER
 
+# For Fedora/RHEL/CentOS
+sudo dnf install -y docker
+sudo systemctl enable docker
+sudo systemctl start docker
+sudo usermod -aG docker $USER
+
 # For macOS
 brew install --cask docker
 
@@ -61,6 +80,10 @@ brew install --cask docker
 curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
 sudo apt-get install -y nodejs
 
+# For Fedora/RHEL/CentOS
+curl -fsSL https://rpm.nodesource.com/setup_18.x | sudo bash -
+sudo dnf install -y nodejs
+
 # For macOS
 brew install node
 
@@ -72,6 +95,9 @@ brew install node
 ```bash
 # For Ubuntu/Debian
 sudo apt-get install golang-go
+
+# For Fedora/RHEL/CentOS
+sudo dnf install golang
 
 # For macOS
 brew install go
