@@ -57,9 +57,12 @@ func main() {
 	// CORS middleware
 	r.Use(func(c *gin.Context) {
 		c.Header("Access-Control-Allow-Origin", "*")
-		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-		c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
+		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
+		c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, Accept, X-Requested-With")
+		c.Header("Access-Control-Expose-Headers", "Content-Length")
+		c.Header("Access-Control-Allow-Credentials", "true")
 
+		// Handle preflight requests
 		if c.Request.Method == "OPTIONS" {
 			c.AbortWithStatus(204)
 			return
@@ -85,6 +88,12 @@ func main() {
 			// User profile
 			protected.GET("/profile", handlers.GetProfile)
 			protected.PUT("/profile", handlers.UpdateProfile)
+			protected.POST("/profile/promote", handlers.SelfPromoteToAuthor)
+
+			// User's own books routes (protected)
+			protected.GET("/my-books", handlers.GetBooks)
+			protected.GET("/my-books/:id", handlers.GetBook)
+			protected.PUT("/my-books/:id", middleware.RequireAuthorOrAdmin(), handlers.UpdateBook)
 
 			// Books routes (protected - for authors/admins)
 			books := protected.Group("/books")

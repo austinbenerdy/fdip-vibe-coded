@@ -27,7 +27,7 @@ const Dashboard: React.FC = () => {
   useEffect(() => {
     const fetchBooks = async () => {
       try {
-        const response = await api.get('/books');
+        const response = await api.get('/my-books');
         setBooks(response.data.books);
       } catch (err: any) {
         setError(err.response?.data?.error || 'Failed to fetch books');
@@ -78,7 +78,7 @@ const Dashboard: React.FC = () => {
           <div className="card">
             <h3>Total Chapters</h3>
             <p className="stat-number">
-              {books.reduce((total, book) => total + book.chapters.length, 0)}
+              {books.reduce((total, book) => total + (book.chapters?.length || 0), 0)}
             </p>
           </div>
           <div className="card">
@@ -118,14 +118,14 @@ const Dashboard: React.FC = () => {
                         {book.is_published ? '📖 Published' : '📝 Draft'}
                       </span>
                       <span className="chapters">
-                        {book.chapters.length} chapter{book.chapters.length !== 1 ? 's' : ''}
+                        {book.chapters?.length || 0} chapter{(book.chapters?.length || 0) !== 1 ? 's' : ''}
                       </span>
                     </div>
                     <div className="book-actions">
-                      <Link to={`/books/${book.id}`} className="btn btn-outline">
+                      <Link to={`/my-books/${book.id}`} className="btn btn-outline">
                         View
                       </Link>
-                      <Link to={`/books/${book.id}/edit`} className="btn btn-primary">
+                      <Link to={`/my-books/${book.id}/edit`} className="btn btn-primary">
                         Edit
                       </Link>
                     </div>

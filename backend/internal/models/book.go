@@ -1,8 +1,10 @@
 package models
 
 import (
-	"time"
 	"encoding/json"
+	"time"
+
+	"gorm.io/gorm"
 )
 
 type Book struct {
@@ -11,7 +13,7 @@ type Book struct {
 	Title         string    `json:"title" gorm:"size:255;not null"`
 	Description   *string   `json:"description"`
 	CoverImageURL *string   `json:"cover_image_url" gorm:"size:500"`
-	Genres        JSON      `json:"genres" gorm:"type:json"`
+	Genres        string    `json:"genres" gorm:"type:text;default:'[]'"`
 	IsPublished   bool      `json:"is_published" gorm:"default:false"`
 	CreatedAt     time.Time `json:"created_at"`
 	UpdatedAt     time.Time `json:"updated_at"`
@@ -21,30 +23,24 @@ type Book struct {
 	Chapters []Chapter `json:"chapters,omitempty" gorm:"foreignKey:BookID;order:chapter_number"`
 }
 
-// JSON type for handling JSON fields in GORM
-type JSON []string
-
-func (j JSON) Value() (interface{}, error) {
-	if j == nil {
-		return nil, nil
+// GetGenres returns the genres as a string slice
+func (b *Book) GetGenres() []string {
+	if b.Genres == "" {
+		return []string{}
 	}
-	return json.Marshal(j)
+	var genres []string
+	json.Unmarshal([]byte(b.Genres), &genres)
+	return genres
 }
 
-func (j *JSON) Scan(value interface{}) error {
-	if value == nil {
-		*j = nil
-		return nil
+// SetGenres sets the genres from a string slice
+func (b *Book) SetGenres(genres []string) {
+	if len(genres) == 0 {
+		b.Genres = "[]"
+		return
 	}
-	
-	switch v := value.(type) {
-	case []byte:
-		return json.Unmarshal(v, j)
-	case string:
-		return json.Unmarshal([]byte(v), j)
-	default:
-		return nil
-	}
+	bytes, _ := json.Marshal(genres)
+	b.Genres = string(bytes)
 }
 
 func (b *Book) GetPublishedChapters() []Chapter {
@@ -63,4 +59,26 @@ func (b *Book) GetChapterCount() int {
 
 func (b *Book) GetPublishedChapterCount() int {
 	return len(b.GetPublishedChapters())
-} 
+}
+
+// MarshalJSON customizes the JSON output for the Book struct
+func (b *Book) MarshalJSON() ([]byte, error) {
+	type Alias Book
+	return json.Marshal(&struct {
+		*Alias
+		Genres   []string  `json:"genres"`
+		Chapters []Chapter `json:"chapters"`
+	}{
+		Alias:    (*Alias)(b),
+		Genres:   b.GetGenres(),
+		Chapters: b.Chapters,
+	})
+}
+
+// AfterFind ensures chapters is never nil
+func (b *Book) AfterFind(tx *gorm.DB) error {
+	if b.Chapters == nil {
+		b.Chapters = []Chapter{}
+	}
+	return nil
+}

@@ -18,7 +18,9 @@ const Profile: React.FC = () => {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [editing, setEditing] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [promoting, setPromoting] = useState(false);
   const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
   const [formData, setFormData] = useState({
     display_name: '',
     bio: '',
@@ -66,6 +68,31 @@ const Profile: React.FC = () => {
     }
   };
 
+  const handlePromoteToAuthor = async () => {
+    setPromoting(true);
+    setError('');
+    setSuccessMessage('');
+
+    try {
+      const response = await api.post('/profile/promote');
+      
+      // Update the token if a new one is provided
+      if (response.data.token) {
+        localStorage.setItem('token', response.data.token);
+        // Update the auth context with new token
+        window.location.reload(); // Simple way to refresh the auth context
+      }
+      
+      setProfile(response.data.user);
+      updateProfile(response.data.user);
+      setSuccessMessage(response.data.message);
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Failed to promote to author');
+    } finally {
+      setPromoting(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="loading">
@@ -103,6 +130,7 @@ const Profile: React.FC = () => {
         </div>
 
         {error && <div className="alert alert-error">{error}</div>}
+        {successMessage && <div className="alert alert-success">{successMessage}</div>}
 
         <div className="profile-content">
           <div className="profile-section">
@@ -125,6 +153,36 @@ const Profile: React.FC = () => {
                 <span className="token-balance">💰 {profile.token_balance} tokens</span>
               </div>
             </div>
+
+            {/* Self-Promotion Section for Readers */}
+            {profile.role === 'reader' && (
+              <div className="promotion-section">
+                <div className="card">
+                  <h3>🚀 Become an Author</h3>
+                  <p>
+                    Ready to share your stories with the world? Promote yourself to author status 
+                    and start creating books and chapters that readers can enjoy and support with tips.
+                  </p>
+                  <div className="author-benefits">
+                    <h4>Author Benefits:</h4>
+                    <ul>
+                      <li>✨ Create and publish your own books</li>
+                      <li>📝 Write chapters and manage your content</li>
+                      <li>💰 Earn tokens from reader tips</li>
+                      <li>📊 Access author dashboard and analytics</li>
+                      <li>👥 Build a following of readers</li>
+                    </ul>
+                  </div>
+                  <button
+                    onClick={handlePromoteToAuthor}
+                    disabled={promoting}
+                    className="btn btn-primary btn-large"
+                  >
+                    {promoting ? 'Promoting...' : '🚀 Promote to Author'}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           {editing ? (

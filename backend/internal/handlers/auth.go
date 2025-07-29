@@ -7,6 +7,7 @@ import (
 	"fdip/internal/auth"
 	"fdip/internal/database"
 	"fdip/internal/models"
+
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
@@ -184,18 +185,18 @@ func GetProfile(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"user": gin.H{
-			"id":             currentUser.ID,
-			"username":       currentUser.Username,
-			"email":          currentUser.Email,
-			"display_name":   currentUser.DisplayName,
-			"bio":            currentUser.Bio,
-			"avatar_url":     currentUser.AvatarURL,
-			"role":           currentUser.Role,
-			"created_at":     currentUser.CreatedAt,
-			"token_balance":  balance.Balance,
-			"total_earned":   balance.TotalEarned,
-			"total_spent":    balance.TotalSpent,
-			"follower_count": followerCount,
+			"id":              currentUser.ID,
+			"username":        currentUser.Username,
+			"email":           currentUser.Email,
+			"display_name":    currentUser.DisplayName,
+			"bio":             currentUser.Bio,
+			"avatar_url":      currentUser.AvatarURL,
+			"role":            currentUser.Role,
+			"created_at":      currentUser.CreatedAt,
+			"token_balance":   balance.Balance,
+			"total_earned":    balance.TotalEarned,
+			"total_spent":     balance.TotalSpent,
+			"follower_count":  followerCount,
 			"following_count": followingCount,
 		},
 	})
@@ -292,4 +293,51 @@ func PromoteToAuthor(c *gin.Context) {
 			"role":         models.RoleAuthor,
 		},
 	})
-} 
+}
+
+// SelfPromoteToAuthor allows a user to promote themselves to author role
+func SelfPromoteToAuthor(c *gin.Context) {
+	currentUser, exists := c.Get("user")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not found in context"})
+		return
+	}
+
+	user := currentUser.(*models.User)
+
+	// Check if user is already an author
+	if user.Role == models.RoleAuthor || user.Role == models.RoleAdmin {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "User is already an author or admin"})
+		return
+	}
+
+	// Update user role to author
+	if err := database.DB.Model(&user).Update("role", models.RoleAuthor).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to promote user"})
+		return
+	}
+
+	// Refresh user from database to ensure we have the latest data
+	if err := database.DB.First(&user, user.ID).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to refresh user data"})
+		return
+	}
+
+	// Generate new JWT token with updated role
+	newToken, err := auth.GenerateToken(user)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate new token"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Successfully promoted to author! You can now create and publish books.",
+		"token":   newToken,
+		"user": gin.H{
+			"id":           user.ID,
+			"username":     user.Username,
+			"display_name": user.DisplayName,
+			"role":         models.RoleAuthor,
+		},
+	})
+}

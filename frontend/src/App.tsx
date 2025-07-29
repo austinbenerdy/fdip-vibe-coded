@@ -31,6 +31,8 @@ function App() {
             <Route path="/books/new" element={<BookForm />} />
             <Route path="/books/:id" element={<BookDetail />} />
             <Route path="/books/:id/edit" element={<BookForm />} />
+            <Route path="/my-books/:id" element={<BookDetail />} />
+            <Route path="/my-books/:id/edit" element={<BookForm />} />
             <Route path="/chapters/:id" element={<ChapterDetail />} />
             <Route path="/buy-tokens" element={<BuyTokens />} />
             

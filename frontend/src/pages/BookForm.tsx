@@ -37,7 +37,7 @@ const BookForm: React.FC = () => {
   const fetchBook = async () => {
     try {
       setLoading(true);
-      const response = await api.get(`/books/${id}`);
+      const response = await api.get(`/my-books/${id}`);
       const book = response.data.book;
       setFormData({
         title: book.title,
@@ -76,7 +76,7 @@ const BookForm: React.FC = () => {
 
     try {
       if (id) {
-        await api.put(`/books/${id}`, formData);
+        await api.put(`/my-books/${id}`, formData);
       } else {
         await api.post('/books', formData);
       }

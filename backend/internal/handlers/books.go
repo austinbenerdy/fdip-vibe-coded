@@ -7,6 +7,7 @@ import (
 	"fdip/internal/database"
 	"fdip/internal/middleware"
 	"fdip/internal/models"
+
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
@@ -109,11 +110,18 @@ func CreateBook(c *gin.Context) {
 		return
 	}
 
+	// Ensure genres is not nil
+	if req.Genres == nil {
+		req.Genres = []string{}
+	}
+
 	book := models.Book{
 		AuthorID: currentUser.ID,
 		Title:    req.Title,
-		Genres:   models.JSON(req.Genres),
 	}
+
+	// Set genres using the new method
+	book.SetGenres(req.Genres)
 
 	if req.Description != "" {
 		book.Description = &req.Description
@@ -124,7 +132,10 @@ func CreateBook(c *gin.Context) {
 	}
 
 	if err := database.DB.Create(&book).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create book"})
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "Failed to create book",
+			"details": err.Error(),
+		})
 		return
 	}
 
@@ -238,7 +249,12 @@ func UpdateBook(c *gin.Context) {
 	// Update book
 	updates := map[string]interface{}{
 		"title": req.Title,
-		"genres": models.JSON(req.Genres),
+	}
+
+	// Handle genres separately using the SetGenres method
+	if req.Genres != nil {
+		book.SetGenres(req.Genres)
+		updates["genres"] = book.Genres
 	}
 
 	if req.Description != "" {
@@ -303,4 +319,4 @@ func DeleteBook(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Book deleted successfully"})
-} 
+}

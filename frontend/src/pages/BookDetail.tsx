@@ -37,7 +37,7 @@ const BookDetail: React.FC = () => {
   useEffect(() => {
     const fetchBook = async () => {
       try {
-        const response = await api.get(`/books/${id}`);
+        const response = await api.get(`/my-books/${id}`);
         setBook(response.data.book);
       } catch (err: any) {
         setError(err.response?.data?.error || 'Failed to fetch book');
@@ -127,10 +127,10 @@ const BookDetail: React.FC = () => {
 
             {isAuthor && (
               <div className="author-actions">
-                <Link to={`/books/${book.id}/edit`} className="btn btn-primary">
+                <Link to={`/my-books/${book.id}/edit`} className="btn btn-primary">
                   Edit Book
                 </Link>
-                <Link to={`/books/${book.id}/chapters/new`} className="btn btn-outline">
+                <Link to={`/my-books/${book.id}/chapters/new`} className="btn btn-primary">
                   Add Chapter
                 </Link>
               </div>
@@ -157,7 +157,7 @@ const BookDetail: React.FC = () => {
             <div className="empty-state">
               <p>No published chapters yet.</p>
               {isAuthor && (
-                <Link to={`/books/${book.id}/chapters/new`} className="btn btn-primary">
+                <Link to={`/my-books/${book.id}/chapters/new`} className="btn btn-primary">
                   Add First Chapter
                 </Link>
               )}
